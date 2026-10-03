@@ -1,48 +1,47 @@
-rank,ticker,company_name,sector_provisional,free_float_rank,ipo_first_trade_date_str,f3_manual_ipo_check
-1,RELIANCE.NS,Reliance Industries Ltd.,Energy - Oil & Gas,1,1993-01-01,False
-2,TCS.NS,Tata Consultancy Services,Information Technology,2,2004-08-01,False
-3,HDFCBANK.NS,HDFC Bank,Financials - Banks,3,1995-01-01,False
-4,INFY.NS,Infosys,Information Technology,4,1993-06-01,False
-5,HINDUNILVR.NS,Hindustan Unilever,Consumer Staples - Household & FMCG,5,1973-01-01,False
-6,ICICIBANK.NS,ICICI Bank,Financials - Banks,6,1998-01-01,False
-7,SBIN.NS,State Bank of India,Financials - Banks - PSU,7,1995-01-01,False
-8,BHARTIARTL.NS,Bharti Airtel,Communication Services - Telecom,8,2002-02-01,False
+﻿rank,ticker,company_name,sector_provisional,free_float_rank,ipo_first_trade_date_str,f3_manual_ipo_check
+1,RELIANCE.NS,Reliance Industries Ltd.,Energy - Oil & Gas,1,1996-01-01,False
+2,TCS.NS,Tata Consultancy Services,Information Technology,2,2002-08-12,False
+3,HDFCBANK.NS,HDFC Bank,Financials - Banks,3,1996-01-01,False
+4,INFY.NS,Infosys,Information Technology,4,1996-01-01,False
+5,HINDUNILVR.NS,Hindustan Unilever,Consumer Staples - Household & FMCG,5,1996-01-01,False
+6,ICICIBANK.NS,ICICI Bank,Financials - Banks,6,2002-07-01,False
+7,SBIN.NS,State Bank of India,Financials - Banks - PSU,7,1996-01-01,False
+8,BHARTIARTL.NS,Bharti Airtel,Communication Services - Telecom,8,2002-07-01,False
 9,ITC.NS,ITC Limited,Consumer Staples - Tobacco & FMCG,9,1996-01-01,False
-10,KOTAKBANK.NS,Kotak Mahindra Bank,Financials - Banks - Private,10,1998-01-01,False
-11,LT.NS,Larsen & Toubro,Industrials - Construction & Engineering,11,2001-01-01,False
-12,AXISBANK.NS,Axis Bank,Financials - Banks - Private,12,1998-01-01,False
-13,HCLTECH.NS,HCL Technologies,Information Technology,13,1999-12-01,False
-14,ASIANPAINT.NS,Asian Paints,Materials - Paints & Coatings,14,1970-01-01,False
-15,MARUTI.NS,Maruti Suzuki India,Consumer Discretionary - 4-Wheelers,15,2003-07-01,False
-16,BAJFINANCE.NS,Bajaj Finance,Financials - NBFCs,16,2007-01-01,False
-17,WIPRO.NS,Wipro,Information Technology,17,1982-01-01,False
-19,SUNPHARMA.NS,Sun Pharmaceutical Industries,Healthcare - Pharmaceuticals,19,1994-01-01,False
-20,TITAN.NS,Titan Company,Consumer Discretionary - Gems & Jewellery,20,1995-01-01,False
-21,ULTRACEMCO.NS,UltraTech Cement,Materials - Cement,21,2004-06-01,False
-22,NESTLEIND.NS,Nestle India,Consumer Staples - Packaged Foods,22,1992-01-01,False
-23,NTPC.NS,NTPC Limited,Utilities - Power Generation - PSU,23,2004-10-01,False
-24,TATAMOTORS.NS,Tata Motors,Consumer Discretionary - 4-Wheelers,24,1992-01-01,False
-25,ONGC.NS,Oil & Natural Gas Corporation,Energy - Oil & Gas E&P - PSU,25,2004-02-01,False
-26,M&M.NS,Mahindra & Mahindra,Consumer Discretionary - 4-Wheelers & Farm Equip.,26,1994-01-01,False
-27,POWERGRID.NS,Power Grid Corporation of India,Utilities - Power Transmission - PSU,27,2007-10-01,False
-28,JSWSTEEL.NS,JSW Steel,Materials - Steel,28,1994-01-01,False
-29,HINDALCO.NS,Hindalco Industries,Materials - Aluminium & Non-Ferrous Metals,29,2000-01-01,False
-30,BAJAJFINSV.NS,Bajaj Finserv,Financials - Diversified NBFC + Insurance,30,2008-01-01,False
+10,KOTAKBANK.NS,Kotak Mahindra Bank,Financials - Banks - Private,10,2001-07-02,False
+11,LT.NS,Larsen & Toubro,Industrials - Construction & Engineering,11,2002-07-01,False
+12,AXISBANK.NS,Axis Bank,Financials - Banks - Private,12,1998-11-27,False
+13,HCLTECH.NS,HCL Technologies,Information Technology,13,2002-08-12,False
+14,ASIANPAINT.NS,Asian Paints,Materials - Paints & Coatings,14,2002-07-01,False
+15,MARUTI.NS,Maruti Suzuki India,Consumer Discretionary - 4-Wheelers,15,2003-07-09,False
+16,BAJFINANCE.NS,Bajaj Finance,Financials - NBFCs,16,2002-07-01,False
+17,WIPRO.NS,Wipro,Information Technology,17,1996-01-01,False
+19,SUNPHARMA.NS,Sun Pharmaceutical Industries,Healthcare - Pharmaceuticals,19,1996-01-01,False
+20,TITAN.NS,Titan Company,Consumer Discretionary - Gems & Jewellery,20,1996-01-01,False
+21,ULTRACEMCO.NS,UltraTech Cement,Materials - Cement,21,2002-08-12,False
+22,NESTLEIND.NS,Nestle India,Consumer Staples - Packaged Foods,22,2002-08-12,False
+23,NTPC.NS,NTPC Limited,Utilities - Power Generation - PSU,23,2004-11-05,False
+25,ONGC.NS,Oil & Natural Gas Corporation,Energy - Oil & Gas E&P - PSU,25,1996-01-01,False
+26,M&M.NS,Mahindra & Mahindra,Consumer Discretionary - 4-Wheelers & Farm Equip.,26,1996-01-01,False
+27,POWERGRID.NS,Power Grid Corporation of India,Utilities - Power Transmission - PSU,27,2007-10-05,False
+28,JSWSTEEL.NS,JSW Steel,Materials - Steel,28,2003-05-08,False
+29,HINDALCO.NS,Hindalco Industries,Materials - Aluminium & Non-Ferrous Metals,29,1996-01-01,False
+30,BAJAJFINSV.NS,Bajaj Finserv,Financials - Diversified NBFC + Insurance,30,2002-08-12,False
 31,DRREDDY.NS,Dr. Reddy's Laboratories,Healthcare - Pharmaceuticals (Generics + API),31,1996-01-01,False
-32,ADANIENT.NS,Adani Enterprises,Conglomerate - Resources + Infra + Trading,32,2001-01-01,False
-33,TATASTEEL.NS,Tata Steel,Materials - Steel,33,1994-01-01,False
-34,COALINDIA.NS,Coal India Limited,Energy - Coal Mining - PSU,34,2010-10-01,False
-35,ADANIPORTS.NS,Adani Ports and Special Economic Zone,Industrials - Ports & Logistics,35,2007-11-01,False
-37,BPCL.NS,Bharat Petroleum Corporation Ltd.,Energy - Oil Refining & Marketing - PSU,37,1996-01-01,False
-38,BRITANNIA.NS,Britannia Industries,Consumer Staples - Biscuits & Dairy,38,1997-01-01,False
-39,EICHERMOT.NS,Eicher Motors,Consumer Discretionary - 2/3-Wheelers (Royal Enfield),39,1990-01-01,False
-40,CIPLA.NS,Cipla Limited,Healthcare - Pharmaceuticals (Generics),40,1995-01-01,False
-41,DIVISLAB.NS,Divi's Laboratories,Healthcare - Pharmaceuticals (CRAMS + API),41,2003-02-01,False
-42,GRASIM.NS,Grasim Industries,Materials - Diversified (Viscose Staple + Cement),42,1992-01-01,False
-44,APOLLOHOSP.NS,Apollo Hospitals Enterprise,Healthcare - Hospital Services,44,2012-12-01,False
-45,INDUSINDBK.NS,IndusInd Bank,Financials - Banks - Private,45,2004-04-01,False
-46,BAJAJ-AUTO.NS,Bajaj Auto,Consumer Discretionary - 2/3-Wheelers,46,2008-05-01,False
-47,HEROMOTOCO.NS,Hero MotoCorp,Consumer Discretionary - 2/3-Wheelers,47,2011-01-01,False
-48,TATACONSUM.NS,Tata Consumer Products,Consumer Staples - Beverages & Packaged Foods,48,1989-01-01,False
-49,TECHM.NS,Tech Mahindra,Information Technology,49,2006-08-01,False
-50,UPL.NS,UPL Limited (United Phosphorus),Materials - Agrochemicals,50,2001-01-01,False
+32,ADANIENT.NS,Adani Enterprises,Conglomerate - Resources + Infra + Trading,32,2002-07-01,False
+33,TATASTEEL.NS,Tata Steel,Materials - Steel,33,1996-01-01,False
+34,COALINDIA.NS,Coal India Limited,Energy - Coal Mining - PSU,34,2010-11-04,False
+35,ADANIPORTS.NS,Adani Ports and Special Economic Zone,Industrials - Ports & Logistics,35,2007-11-27,False
+37,BPCL.NS,Bharat Petroleum Corporation Ltd.,Energy - Oil Refining & Marketing - PSU,37,1996-01-02,False
+38,BRITANNIA.NS,Britannia Industries,Consumer Staples - Biscuits & Dairy,38,1996-01-02,False
+39,EICHERMOT.NS,Eicher Motors,Consumer Discretionary - 2/3-Wheelers (Royal Enfield),39,1996-01-01,False
+40,CIPLA.NS,Cipla Limited,Healthcare - Pharmaceuticals (Generics),40,1996-01-01,False
+41,DIVISLAB.NS,Divi's Laboratories,Healthcare - Pharmaceuticals (CRAMS + API),41,2003-03-12,False
+42,GRASIM.NS,Grasim Industries,Materials - Diversified (Viscose Staple + Cement),42,2002-07-01,False
+44,APOLLOHOSP.NS,Apollo Hospitals Enterprise,Healthcare - Hospital Services,44,2002-07-01,False
+45,INDUSINDBK.NS,IndusInd Bank,Financials - Banks - Private,45,2002-07-01,False
+46,BAJAJ-AUTO.NS,Bajaj Auto,Consumer Discretionary - 2/3-Wheelers,46,2002-07-01,False
+47,HEROMOTOCO.NS,Hero MotoCorp,Consumer Discretionary - 2/3-Wheelers,47,2002-07-01,False
+48,TATACONSUM.NS,Tata Consumer Products,Consumer Staples - Beverages & Packaged Foods,48,1996-01-01,False
+49,TECHM.NS,Tech Mahindra,Information Technology,49,2006-08-28,False
+50,UPL.NS,UPL Limited (United Phosphorus),Materials - Agrochemicals,50,2002-07-01,False

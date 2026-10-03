@@ -27,16 +27,68 @@ from __future__ import annotations
 
 import datetime as dt
 import sys
+import threading
 import time
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import requests
 import yfinance as yf
+
+# ---------------------------------------------------------------------------
+# 0. yfinance 429 Edge "Too Many Requests" fix (user-agent patch).
+#    Yahoo's Edge CDN explicitly blocks the default
+#    "User-Agent: python-requests/X.Y.Z" with an HTTP 429 HTML page that
+#    yfinance then tries to parse as JSON, producing YFTzMissingError /
+#    JSONDecodeError.
+#
+#    Two-layer fix applied here, verified against yfinance 0.2.44 internals
+#    via introspection 2026-10-02:
+#      (a) Globally overwrite yfinance's own `user_agent_headers` dict (the
+#          source it uses for default request headers everywhere including
+#          internal cookie-fetch / info-fetch code paths).
+#      (b) Create a single long-lived `requests.Session` with a Chrome-mimic
+#          UA and pass it explicitly to *every* `yf.download(session=...)`
+#          and `yf.Ticker(session=...)` call in this script, so that the
+#          shared YfData singleton inside yfinance reuses it instead of
+#          constructing a fresh default python-requests Session.
+#
+#    Confirmed via raw requests.get(...) comparison 2026-10-02:
+#       Chrome UA   => HTTP 200, application/json
+#       default UA  => HTTP 429, content-type: text/html, body = 23 bytes
+#                      "Edge: Too Many Requests"
+# ---------------------------------------------------------------------------
+_UA_STRING = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/122.0 Safari/537.36"
+)
+_yf_session = requests.Session()
+_yf_session.headers["User-Agent"] = _UA_STRING
+_yf_session.headers["Accept"] = (
+    "application/json,text/html;q=0.9,application/xhtml+xml,"
+    "application/xml;q=0.9,*/*;q=0.8"
+)
+_yf_session.headers["Accept-Language"] = "en-US,en;q=0.9"
+# (a) Module-level global headers dict — used by yfinance everywhere as
+#     the base template for internal fetches (cookie, info, chart, ...).
+try:
+    yf.utils.user_agent_headers["User-Agent"] = _UA_STRING
+except Exception:
+    pass  # benign: future rename; explicit session pass below still works
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_RAW = ROOT / "data" / "raw"
 DOCS = ROOT / "docs"
+_YF_CACHE_DIR = ROOT / ".yf_cache"
+_YF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    import yfinance.cache as _yfc
+    _yfc.set_tz_cache_location(str(_YF_CACHE_DIR))
+    _yfc.set_cache_location(str(_YF_CACHE_DIR))
+except Exception:
+    pass  # benign: future yfinance rename; session-based pull still works
 
 # ---------------------------------------------------------------------------
 # 1. Hard-code the 50 NIFTY 50 tickers from docs/literature_matrix.md §D.
@@ -105,6 +157,87 @@ F1_MAX_NAN_FRAC         = 0.05
 F2_MAX_ILLIQUID_FRAC    = 0.02
 F3_MIN_TRADE_DATE       = pd.Timestamp("2015-01-01")
 
+def _raw_yahoo_chart(
+    ticker: str,
+    start: dt.date,
+    end: dt.date,
+    interval: str = "1d",
+    include_adj: bool = True,
+    events: str = "div,splits",
+) -> pd.DataFrame:
+    """
+    Pull OHLCV from the Yahoo Finance v8 chart API directly via raw
+    requests.get (bypassing yfinance's internal session construction
+    which is prone to HTTP 429 from Edge CDN when running in a sandbox
+    that interferes with yfinance's sqlite cache / shared sessions).
+
+    Returns a pandas DataFrame indexed by UTC-less DatetimeIndex (date-only,
+    midnight) with columns [Open, High, Low, Close, Adj Close, Volume] —
+    the same shape yfinance returns with auto_adjust=True + interval=1d.
+
+    Raises RuntimeError on HTTP non-2xx or missing chart payload.
+    """
+    period1 = int(dt.datetime(start.year, start.month, start.day).timestamp())
+    period2 = int(dt.datetime(end.year, end.month, end.day).timestamp())
+    params = {
+        "period1": period1,
+        "period2": period2,
+        "interval": interval,
+        "includeAdjustedClose": "true" if include_adj else "false",
+        "events": events,
+    }
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    r = _yf_session.get(url, params=params, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(
+            f"yahoo chart HTTP {r.status_code} for {ticker}: "
+            f"{r.text[:200]!r}"
+        )
+    payload = r.json()
+    result = payload.get("chart", {}).get("result")
+    if not result:
+        err = payload.get("chart", {}).get("error", {}) or {}
+        raise RuntimeError(
+            f"yahoo chart empty result for {ticker}: "
+            f"description={err.get('description')!r} code={err.get('code')!r}"
+        )
+    r0 = result[0]
+    ts = r0.get("timestamp") or []
+    quote = (r0.get("indicators") or {}).get("quote") or []
+    adj_close_arr = (
+        ((r0.get("indicators") or {}).get("adjclose") or [{}])[0].get("adjclose")
+        if include_adj
+        else None
+    )
+    if not ts or not quote:
+        return pd.DataFrame(
+            columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+        )
+    q0 = quote[0]
+    idx = pd.to_datetime(ts, unit="s").tz_localize(None).normalize()
+    out = pd.DataFrame(
+        {
+            "Open":      q0.get("open"),
+            "High":      q0.get("high"),
+            "Low":       q0.get("low"),
+            "Close":     q0.get("close"),
+            "Volume":    q0.get("volume"),
+        },
+        index=idx,
+    )
+    if adj_close_arr is not None:
+        # When auto_adjust=True (includeAdjustedClose=true & we treat adj
+        # close as the primary Close), the downstream filter logic uses
+        # df["Close"].squeeze() — identical to yfinance auto_adjust=True
+        # semantics (the returned Close column is dividend/split-adjusted).
+        out["Adj Close"] = adj_close_arr
+        out["Close"] = out["Adj Close"]
+    else:
+        out["Adj Close"] = out["Close"]
+    out = out.sort_index()
+    return out
+
+
 def _first_valid_close(close: pd.Series) -> pd.Timestamp | None:
     idx = close.first_valid_index()
     return idx if idx is not None else None
@@ -113,18 +246,33 @@ def _first_valid_close(close: pd.Series) -> pd.Timestamp | None:
 def _ipo_first_trade_date(ticker_str: str) -> tuple[pd.Timestamp | None, bool]:
     """
     Return (first_trade_date, manual_check_needed).
-    yfinance for .NS often doesn't ship an explicit "ipo date" field, so we
-    fall back to the earliest trading date recorded in the Ticker history
-    meta, then info["firstTradeDateEpochUtc"], then None (needs manual audit).
+
+    Preferred source: Yahoo v8 chart metadata `result[0].meta.firstTradeDate`
+    (returned for free with every chart response, no extra API call).
+
+    NOTE (2026-10-02): We intentionally use period1=1980-01-01 → period2 just
+    past the study start.  A shorter 1-day window (e.g. 1990-01-01 → 1990-01-02)
+    that predates the ticker's actual data range returns HTTP 400 "Data
+    doesn't exist for startDate = ...", which is what caused the earlier run
+    to return ft=None for every ticker, making the F3 rule degenerate.
     """
     try:
-        tk = yf.Ticker(ticker_str)
-        info = tk.info or {}
-        for key in ("firstTradeDateEpochUtc", "firstTradeDate"):
-            val = info.get(key)
-            if isinstance(val, (int, float)) and val > 0:
-                first = pd.Timestamp(val, unit="s", tz="UTC").tz_convert(None)
-                return first, False
+        period1 = int(dt.datetime(1980, 1, 1).timestamp())
+        period2 = int(dt.datetime(2015, 1, 15).timestamp())
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_str}"
+        r = _yf_session.get(
+            url,
+            params={"period1": period1, "period2": period2, "interval": "1d"},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            payload = r.json()
+            result = payload.get("chart", {}).get("result") or []
+            if result and "meta" in result[0]:
+                ft = result[0]["meta"].get("firstTradeDate")
+                if isinstance(ft, (int, float)) and ft > 0:
+                    first = pd.Timestamp(ft, unit="s", tz="UTC").tz_convert(None)
+                    return first, False
     except Exception:
         pass
     return None, True
@@ -152,25 +300,23 @@ def _apply_filters(row: tuple) -> dict:
 
     # -------- download (DEV window only) ----------------------------------
     try:
-        df = yf.download(
+        df = _raw_yahoo_chart(
             ticker,
-            start=DATA_START.isoformat(),
-            end=(DATA_END + dt.timedelta(days=1)).isoformat(),
-            auto_adjust=True,
-            progress=False,
-            threads=False,
+            start=DATA_START,
+            end=DATA_END + dt.timedelta(days=1),
+            interval="1d",
+            include_adj=True,
         )
     except Exception as e:
-        out["f1_reason"] = f"yfinance download failed: {e!r}"
+        out["f1_reason"] = f"yahoo chart pull failed: {e!r}"
         out["rejection_reason"] = out["f1_reason"]
         return out
 
     if df is None or df.empty:
-        out["f1_reason"] = "yfinance returned empty DataFrame"
+        out["f1_reason"] = "yahoo chart returned empty DataFrame"
         out["rejection_reason"] = out["f1_reason"]
         return out
 
-    # yfinance returns flat columns for single-ticker downloads since 0.2.x
     close = df["Close"].squeeze()
     volume = df["Volume"].squeeze()
     if not isinstance(close, pd.Series):

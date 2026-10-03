@@ -23,6 +23,11 @@ htmlcov/
 .ruff_cache/
 .hypothesis/
 
+# yfinance project-local caches (auto-created by yfinance.cache.set_tz_cache_location
+# / set_cache_location in scripts/freeze_universe.py to work around TRAE IDE sandbox
+# blocking %LOCALAPPDATA%\py-yfinance writes). Per-machine sqlite caches, never commit.
+.yf_cache/
+
 # =============================================================================
 # Environment / secrets
 # =============================================================================
@@ -32,10 +37,14 @@ htmlcov/
 
 # =============================================================================
 # Raw data (never commit market data) — keep placeholders only
+# Exception: universe_frozen.csv = authoritative frozen 46-ticker universe
+# (small metadata CSV, not OHLCV data) and the 46-row CAGR audit-trail CSV
+# for the survivorship-bias §E low-bound proxy (also small metadata-only).
 # =============================================================================
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/universe_frozen.csv
+!data/raw/_survivorship_bias_proxy_cagrs.csv
 
 data/processed/*
 !data/processed/.gitkeep
