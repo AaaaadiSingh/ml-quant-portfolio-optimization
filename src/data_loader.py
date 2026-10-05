@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Iterable, Optional, Union
 
@@ -46,6 +47,7 @@ def _raw_yahoo_chart(
     include_adj: bool = True,
     events: str = "div,splits",
     timeout: int = 30,
+    max_retries: int = 5,
 ) -> pd.DataFrame:
     import datetime as dt
 
@@ -65,54 +67,68 @@ def _raw_yahoo_chart(
         "events": events,
     }
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
-    resp = _get_session().get(url, params=params, timeout=timeout)
-    if resp.status_code != 200:
-        raise RuntimeError(
-            f"yahoo chart HTTP {resp.status_code} for {ticker}: {resp.text[:200]}"
-        )
-    payload = resp.json()
-    results = payload.get("chart", {}).get("result")
-    if not results or results[0] is None:
-        err = (payload.get("chart", {}) or {}).get("error")
-        raise RuntimeError(
-            f"yahoo chart null result for {ticker}: {err!r}. "
-            "No data found, symbol may be delisted"
-        )
-    res0 = results[0]
-    ts = res0.get("timestamp") or []
-    if not ts:
-        return pd.DataFrame(
-            columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"]
-        )
-    idx = pd.to_datetime(ts, unit="s", utc=True).tz_convert(None).normalize()
-    quote = (res0.get("indicators", {}) or {}).get("quote", [{}])[0] or {}
-    adj_series = None
-    if include_adj:
-        ac = (res0.get("indicators", {}) or {}).get("adjclose")
-        if ac:
-            adj_series = ac[0].get("adjclose")
-    o = quote.get("open") or [None] * len(ts)
-    h = quote.get("high") or [None] * len(ts)
-    l = quote.get("low") or [None] * len(ts)
-    c = quote.get("close") or [None] * len(ts)
-    v = quote.get("volume") or [None] * len(ts)
-    if adj_series is None:
-        adj_series = list(c)
-    df = pd.DataFrame(
-        {
-            "Open": o,
-            "High": h,
-            "Low": l,
-            "Close": c,
-            "Adj Close": adj_series,
-            "Volume": v,
-        },
-        index=idx,
-    )
-    if include_adj:
-        df["Close"] = df["Adj Close"]
-    df = df[~df.index.duplicated(keep="last")].sort_index()
-    return df
+
+    last_exc: Optional[BaseException] = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            resp = _get_session().get(url, params=params, timeout=timeout)
+            if resp.status_code != 200:
+                raise RuntimeError(
+                    f"yahoo chart HTTP {resp.status_code} for {ticker}: {resp.text[:200]}"
+                )
+            payload = resp.json()
+            results = payload.get("chart", {}).get("result")
+            if not results or results[0] is None:
+                err = (payload.get("chart", {}) or {}).get("error")
+                raise RuntimeError(
+                    f"yahoo chart null result for {ticker}: {err!r}. "
+                    "No data found, symbol may be delisted"
+                )
+            res0 = results[0]
+            ts = res0.get("timestamp") or []
+            if not ts:
+                return pd.DataFrame(
+                    columns=["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+                )
+            idx = pd.to_datetime(ts, unit="s", utc=True).tz_convert(None).normalize()
+            quote = (res0.get("indicators", {}) or {}).get("quote", [{}])[0] or {}
+            adj_series = None
+            if include_adj:
+                ac = (res0.get("indicators", {}) or {}).get("adjclose")
+                if ac:
+                    adj_series = ac[0].get("adjclose")
+            o = quote.get("open") or [None] * len(ts)
+            h = quote.get("high") or [None] * len(ts)
+            l = quote.get("low") or [None] * len(ts)
+            c = quote.get("close") or [None] * len(ts)
+            v = quote.get("volume") or [None] * len(ts)
+            if adj_series is None:
+                adj_series = list(c)
+            df = pd.DataFrame(
+                {
+                    "Open": o,
+                    "High": h,
+                    "Low": l,
+                    "Close": c,
+                    "Adj Close": adj_series,
+                    "Volume": v,
+                },
+                index=idx,
+            )
+            if include_adj:
+                df["Close"] = df["Adj Close"]
+            df = df[~df.index.duplicated(keep="last")].sort_index()
+            return df
+        except Exception as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                sleep_s = min(2.0 ** (attempt - 1), 15.0)
+                time.sleep(sleep_s)
+            else:
+                break
+    raise RuntimeError(
+        f"_raw_yahoo_chart failed for {ticker} after {max_retries} attempts: {last_exc!r}"
+    ) from last_exc
 
 
 FinalHoldoutDate = pd.Timestamp("2024-01-01")
@@ -142,15 +158,25 @@ def load_prices(
         pqt = cache_path / f"{tkr}.parquet"
         csv = cache_path / f"{tkr}.csv"
         df_t: Optional[pd.DataFrame] = None
+        fetched_from_network = False
         if pqt.exists():
             df_t = pd.read_parquet(pqt)
         elif csv.exists():
             df_t = pd.read_csv(csv, index_col=0, parse_dates=True)
         if df_t is None or df_t.empty:
             df_t = _raw_yahoo_chart(tkr, start_date, end_date)
+            fetched_from_network = True
         if df_t is None or df_t.empty:
             continue
         df_t = df_t[~df_t.index.duplicated(keep="last")].sort_index()
+        if fetched_from_network:
+            try:
+                df_t.to_parquet(pqt)
+            except Exception:
+                try:
+                    df_t.to_csv(csv)
+                except Exception:
+                    pass
         frames[tkr] = df_t
     if not frames:
         return pd.DataFrame()
