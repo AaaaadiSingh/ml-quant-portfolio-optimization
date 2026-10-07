@@ -24,7 +24,7 @@ from src.features import align_X_y, make_features, make_targets
 def main() -> int:
     out = ROOT / "data" / "processed"
     print("=" * 72)
-    print("P H A S E  4  —  7 / 7  E X I T   G A T E  V E R I F I C A T I O N")
+    print("P H A S E  4  --  7 / 7  E X I T   G A T E  V E R I F I C A T I O N")
     print("=" * 72)
 
     print("G1: pytest 37 tests PASS (36 original + 1 ML smoke)")
@@ -44,7 +44,7 @@ def main() -> int:
         p = out / csv_name
         d = pd.read_csv(p)
         assert len(d) == expect_rows, (csv_name, len(d), expect_rows)
-        print(f"    {csv_name}: {len(d)} rows (32 RD × 46 tickers = {expect_rows})")
+        print(f"    {csv_name}: {len(d)} rows (32 RD x 46 tickers = {expect_rows})")
     print("    [PASS]\n")
 
     print("G4: 3 forecast CSVs exist with >= 1472 rows each")
@@ -85,7 +85,7 @@ def main() -> int:
         assert mx_w <= 0.1000 + 1e-7, (fam, mx_w)
     print("    [PASS]\n")
 
-    print("G6: nb2 metric identity on 3 ML equities, max |Δ| < 0.005 over 4 cols")
+    print("G6: nb2 metric identity on 3 ML equities, max |delta| < 0.005 over 4 cols")
     summary_df = pd.read_csv(out / "phase4_ml_summary.csv").set_index("strategy_key")
     cols = ["ann_return_pct", "ann_vol", "sharpe_txadj", "max_dd_pct"]
     max_abs = 0.0
@@ -98,7 +98,7 @@ def main() -> int:
             d = abs(float(disk[c]) - float(rec[c]))
             row_max = max(row_max, d)
         max_abs = max(max_abs, row_max)
-        print(f"    {fam}: 4-col max |Δ| = {row_max:.6f}")
+        print(f"    {fam}: 4-col max |delta| = {row_max:.6f}")
     tol = 0.005
     print(f"    Global max across 12 cells = {max_abs:.6f} (tol {tol})")
     assert max_abs < tol, (max_abs, tol)

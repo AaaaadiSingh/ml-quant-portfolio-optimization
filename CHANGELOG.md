@@ -390,6 +390,94 @@ All gates from Source spec §27 (Phase 3 Exit Gates G1–G7) must be YES before 
 
 ---
 
+## Week 5–6 — Quantitative Baselines (2026-10-04 — COMPLETE ✅)
+
+### ✅ Completed
+
+- **Stage 1A: Rebalance Frequency Winner — QUARTERLY (63 BD)**
+  - `scripts/stage1a_apply_txcost.py` evaluated Monthly (21 d) vs Quarterly (63 d) under 10 bps turnover drag.
+  - Quarterly mean tx-cost-adjusted Sharpe: **+0.8288** vs Monthly: **+0.7811** (margin = **+0.0477** = **+47.7 bps-Sharpe**, direct win).
+  - Frozen to `data/processed/stage1a_decision.csv` and `data/processed/phase3_stage1_winners.csv`.
+
+- **Stage 1B: Covariance Estimator Winner — LEDOIT-WOLF SHRINKAGE (LW)**
+  - Synthetic solver cross-check (§16 mandatory gate): LW RMS(Δw) = 3.07e-7 < 5e-4; PCA RMS = 1.57e-4 < 5e-4.
+  - 3 cov-sensitive strategies quarterly WF: LW mean tx-Sharpe = **+0.0526** vs PCA = **+0.0524** (Δ = 2.45 bps-Sharpe). Tie-breaker 1 (lower turnover: LW 18,468 vs PCA 19,066 bps/yr) confirmed LW.
+  - PCA K capture bug remediated (K = 14.5833). Frozen to `data/processed/stage1b_decision.csv`.
+
+- **Stage 1C / WG4: 5 Classical Baselines Full Walk-Forward (`scripts/phase3_run_5baselines.py`)**
+  - Evaluated 5 strategies: 1/N Equal Weight, FreeFloat Proxy, Min Variance (LW), Risk Parity (LW), Classic Max Sharpe (LW, ±3pp CMS).
+  - Remediation of CMS ±3 pp sector drift (Bug #3) and NB2 signature metric identity (Bug #4, Δ = 0.0000000).
+  - Baseline ranking (excess Sharpe rf=4%): CMS (+0.0331) > Equal Weight (+0.0197) > FreeFloat (−0.0026) > Risk Parity (−0.0072) > Min Variance (−0.0615).
+
+- **WG5 / WG6: Notebook 02 & Exit Gate Validation**
+  - `notebooks/_run_nb2_validation.py`: 8/8 panels PASS, 2/2 hard asserts GREEN (`violated_flag=False`, `max |Δ|=0.000000`).
+  - 7/7 Phase 3 Exit Gates PASS.
+
+---
+
+## Week 7–9 — ML Conditional Return Forecasts (2026-10-06 — COMPLETE ✅)
+
+### ✅ Completed
+
+- **3 ML Model Families Built (`src/ml_models.py`)**
+  - Ridge LinReg (StandardScaler + Ridge alpha=1.0, seed=7), Random Forest (depth=8, min_leaf=20, n=200), XGBoost (hist, n=500, lr=0.03, depth=4).
+  - Pooled cross-sectional panel regressions (1 model across 46 tickers, not 46 per-ticker).
+
+- **Walk-Forward Architecture & Anti-Lookahead Verification (`scripts/phase4_build_forecasts.py`)**
+  - 37 Quarterly RDs looped. Target horizon guard: `train_max_date < RD − 21 BD`. Feature guard: `X_latest.date.max() < RD`.
+  - Scaling: 21d point forecast × 3.0 → 63d quarterly μ̂ (`assert abs(3.0 − SCALE) < 1e-12`).
+  - First 5 RDs (2015) use CMS 63d μ̂ fallback (0 training rows available); 32 true ML RDs.
+
+- **OOS Residuals & Normality Testing**
+  - 5-fold TimeSeriesSplit residuals across 89,608 trainable cells.
+  - Jarque-Bera test rejects Gaussian null for all 3 families (p = 0.0) → **Empirical residual bootstrap mandatory for Phase 5**.
+
+- **Walk-Forward Portfolio Execution & Model Selection (`scripts/phase4_run_ml_wf.py`)**
+  - Reused frozen Phase 3 pipeline: LW Σ, Clarabel ±3pp sector-QP projection, 10% single-name cap, 10 bps turnover drag.
+  - Performance rank: Ridge LinReg (+0.0612) > XGBoost (+0.0468) > RF (+0.0427) > CMS (+0.0331) > 1/N (+0.0197).
+  - Ridge LinReg selected as winner (highest tx-Sharpe, confirmed by tie-breaker 1 turnover 1,085,289 bps vs XGB 1,279,930 bps).
+  - `phase4_model_selection_decision.csv` written (1 authoritative row).
+
+- **7/7 Exit Gates PASS (`scripts/_p4_exit_gates.py`)**
+  - G1 pytest 37/37, G2 sanity 7/7, G3 forecast exit 0, G4 CSV rows 1472, G5 drift bound ±3.000 pp, G6 identity Δ=0.000000, G7 decision row.
+
+---
+
+## Week 10–11 — Monte Carlo Resampling & Risk (2026-10-07 — COMPLETE ✅)
+
+### ✅ Completed
+
+- **Phase 5 Engine (`src/monte_carlo.py`)**
+  - Implemented `simulate_scenarios()` (`iid`, `block_21`, `multivariate_row`) preserving 46-ticker cross-asset correlation.
+  - Implemented `resample_weights()` with joblib parallel Clarabel QP re-solves, $\sqrt{3}$ scaling assert, defensive post-verifier repair (`w_upper=0.10`, `sector_tolerance=0.03`).
+  - Unit test `tests/test_monte_carlo_smoke.py` → pytest suite **38/38 PASS**.
+
+- **Step 5.1: OOS Residual Extraction (`scripts/phase5_step1_build_residuals.py`)**
+  - 74,520 empirical OOS residuals extracted (`phase5_ridge_oos_residuals_empirical.csv`).
+  - Fat tails confirmed: Kurtosis excess $= +9.799$, Jarque-Bera $p=0.0$, Student-$t$ MLE $\nu = 4.30$. Parametric normal draws strictly forbidden.
+
+- **Step 5.2: Bootstrap Mode Integrity (`scripts/phase5_step2_bootstrap_modes.py`)**
+  - Block $B=21$ contiguity verified (10/10 PASS). Multivariate joint date mask verified (46/46 PASS).
+
+- **Step 5.3: MC Forward Weight Loop (`scripts/phase5_step3_mc_weight_loop.py`)**
+  - 37 RDs × 500 draws = 18,500 solves → 851,000 weights in `phase5_mc_weights_long.csv` and `phase5_raw_weight_draws_long.csv.gz`.
+  - 0 cap breaches, 0 drift breaches across all 37 RDs. Pipeline drift guard $L_2 < 10^{-6}$ verified.
+
+- **Step 5.4: Convergence Curve (`scripts/phase5_step4_convergence_curve.py`)**
+  - $K \in [50..500]$ sweep: 90% confidence interval width change from $K=200 \to K=500$ is **+2.205% < 5.0%** (stopping rule satisfied).
+
+- **Step 5.5: Centroid Selection & Stability A/B Proof (`scripts/phase5_step5_centroid_selection.py`)**
+  - Evaluated Mean, Median, Medoid draw aggregations.
+  - Selected `mean` centroid via FR-5 diversification tie-breaker (lowest dispersion 0.00948 vs median 0.01913).
+  - Proved stability A/B: Turnover reduced from $16,758.5\,\text{bps/yr}$ (Phase 4 point estimate) to **$6,148.9\,\text{bps/yr}$** (~63% reduction), max concentration $9.340\% \le 10.00\%$.
+  - Exported 1,702 selected weight rows to `phase5_selected_centroid_weights.csv`.
+
+- **Notebook 03 & Exit Gate Validation**
+  - `notebooks/03_monte_carlo_resampling.py` (19 cells) + `notebooks/_run_nb3_validation.py` (8 panels PASS, 2/2 hard asserts GREEN).
+  - `scripts/_p5_exit_gates.py` → **7/7 Exit Gates PASS**.
+
+---
+
 ## Phase-Signing Checklists
 
 ### Phase 1 — Foundations exit (from `CONTEXT.md §6` / README)
@@ -413,3 +501,41 @@ All gates from Source spec §27 (Phase 3 Exit Gates G1–G7) must be YES before 
       Stage 1A/1B sequential pipeline, and D1–D12 documented defaults
       (full overlap with CONTEXT.md methodology except the 4 documented
       deviations in CHECKPOINT §3.5)
+
+### Phase 2 — Data & Feature Engineering exit
+
+- [x] 8 feature families implemented (77 columns), 0 look-ahead bias
+- [x] Structural separation between features, targets, and alignment
+- [x] `test_no_lookahead.py` 4/4 PASS
+- [x] `sanity_check_features.py` 7/7 PASS ($X = 89,608 \times 77$)
+- [x] 8 baseline equity curves written
+
+### Phase 3 — Quantitative Baselines exit
+
+- [x] Stage 1A: Quarterly rebalance frequency selected (+47.7 bps-Sharpe margin)
+- [x] Stage 1B: Ledoit-Wolf shrinkage selected (+2.45 bps-Sharpe margin)
+- [x] §16 synthetic solver cross-check passed (LW 3.07e-7, PCA 1.57e-4)
+- [x] 5 classical baselines executed on quarterly walk-forward
+- [x] Sector drift bounds (±3 pp) and single-name caps (10%) strictly enforced
+- [x] Notebook 02 validation 8/8 panels PASS, 2/2 hard asserts GREEN
+- [x] 7/7 Phase 3 Exit Gates PASS
+
+### Phase 4 — ML Conditional Return Forecasts exit
+
+- [x] 3 ML model families (Ridge LinReg, Random Forest, XGBoost) implemented
+- [x] Pooled walk-forward regression with target and feature anti-leak guards
+- [x] Residual normality rejected across all 3 families (JB p = 0.0)
+- [x] Ridge LinReg selected as winner (Sharpe tx-adj = +0.0612, beats 1/N by +415 bps)
+- [x] 7/7 Phase 4 Exit Gates PASS
+
+### Phase 5 — Monte Carlo Resampling & Risk exit
+
+- [x] `src/monte_carlo.py` implemented with `simulate_scenarios()` and `resample_weights()`
+- [x] Unit test `test_monte_carlo_smoke.py` passing (pytest 38/38 PASS)
+- [x] 74,520 empirical OOS residuals extracted, fat tails confirmed ($\nu = 4.30$, excess kurtosis $+9.799$)
+- [x] Mode C multivariate-row bootstrap verified (cross-asset correlation preserved)
+- [x] Full 37 RD × 500 draw loop executed (851,000 weights, 0 cap/drift violations, drift guard $L_2 < 10^{-6}$)
+- [x] Convergence stopping rule verified ($2.205\% < 5.0\%$)
+- [x] Selected `mean` centroid portfolio verified (turnover reduced ~63% to $6,148.9\,\text{bps/yr}$, max concentration $9.34\% \le 10\%$)
+- [x] Notebook 03 8 panels and 2/2 hard asserts PASS
+- [x] 7/7 Phase 5 Exit Gates PASS

@@ -39,7 +39,7 @@ def main() -> int:
     if prices.empty:
         print("[FAIL] load_prices returned empty DataFrame")
         return 2
-    print(f"[info] raw prices shape = {prices.shape}, date range {prices.index.min().date()} → {prices.index.max().date()}")
+    print(f"[info] raw prices shape = {prices.shape}, date range {prices.index.min().date()} -> {prices.index.max().date()}")
 
     close = prices["Close"]
     high = prices["High"]
@@ -56,14 +56,14 @@ def main() -> int:
     min_expected_lead = max_rolling_lead
     min_expected_rows = n_dates_raw - min_expected_lead - FORWARD_TARGET_HORIZON_DAYS
     min_expected_rows = max(min_expected_rows, 1)
-    print(f"[info] max rolling lead-in = {max_rolling_lead} d; target horizon = {FORWARD_TARGET_HORIZON_DAYS} d; lower bound N_rows ≈ {min_expected_rows * len(tickers)} cells")
+    print(f"[info] max rolling lead-in = {max_rolling_lead} d; target horizon = {FORWARD_TARGET_HORIZON_DAYS} d; lower bound N_rows ~ {min_expected_rows * len(tickers)} cells")
 
     print("[run ] make_features() ...")
     X_wide = make_features(close, high, low, volume)
     if X_wide.empty:
         print("[FAIL] make_features returned empty DataFrame")
         return 3
-    print(f"[ok  ] features shape (long, date×ticker) = {X_wide.shape}; N_feature_cols = {len(X_wide.columns)}")
+    print(f"[ok  ] features shape (long, date x ticker) = {X_wide.shape}; N_feature_cols = {len(X_wide.columns)}")
 
     print("[run ] make_targets() ...")
     y_long = make_targets(close, horizon_days=FORWARD_TARGET_HORIZON_DAYS)
@@ -102,7 +102,7 @@ def main() -> int:
     expected_min = raw_start + pd.offsets.BDay(max_rolling_lead + 1)
     assert min_common_date >= expected_min - pd.Timedelta(days=7), (
         f"lead-in underflow! first usable date {min_common_date.date()} < "
-        f"raw_start + {max_rolling_lead + 1} BD ~ {expected_min.date()} — rolling windows probably not filled correctly"
+        f"raw_start + {max_rolling_lead + 1} BD ~ {expected_min.date()} - rolling windows probably not filled correctly"
     )
     print(f"[ok  ] lead-in check: min common date = {min_common_date.date()} >= ~{expected_min.date()} (lead-in filled)")
 
@@ -125,7 +125,7 @@ def main() -> int:
     n_tkrs_per_date = n_trainable // max(n_expected_dates, 1)
     print(
         f"[summary] {n_trainable} trainable cells across "
-        f"{n_expected_dates} dates × ~{n_tkrs_per_date} tickers/date | "
+        f"{n_expected_dates} dates x ~{n_tkrs_per_date} tickers/date | "
         f"{len(X.columns)} features | horizon y = fwd {FORWARD_TARGET_HORIZON_DAYS} d log return"
     )
     print("[DONE] all 7 sanity assertions PASSED")
