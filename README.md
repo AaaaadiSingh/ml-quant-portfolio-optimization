@@ -1,4 +1,5 @@
 # ML-Based Portfolio Optimization for Risk-Aware Investment Decision Making
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://adi-quant-portfolio.streamlit.app)
 
 [![Status: v1.0-final](https://img.shields.io/badge/Status-v1.0--final-brightgreen.svg)](README.md)
 [![Tests](https://img.shields.io/badge/Tests-43%2F43%20Passing-success.svg)](tests/)
