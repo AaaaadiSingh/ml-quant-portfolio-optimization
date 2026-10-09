@@ -54,7 +54,9 @@ data/processed/*
 # =============================================================================
 results/*
 !results/.gitkeep
-!results/figures/.gitkeep
+!results/*.csv
+!results/figures/
+!results/figures/*
 
 # =============================================================================
 # IDE / OS
