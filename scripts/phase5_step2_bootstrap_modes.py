@@ -14,7 +14,9 @@ from src.monte_carlo import SCALE_RESID_SQRT, simulate_scenarios
 from build_stage1a_baselines import DEV_END, STUDY_START
 
 RIDGE_RESID_CSV = ROOT / "data" / "processed" / "phase5_ridge_oos_residuals_empirical.csv"
-FORECAST_CSV = ROOT / "data" / "processed" / "phase4_ridge_linreg_forecasts.csv"
+DEC_PATH = ROOT / "data" / "processed" / "phase4_model_selection_decision.csv"
+WINNER_FAMILY = str(pd.read_csv(DEC_PATH)["selected_model"].iloc[0]) if DEC_PATH.exists() else "rf"
+FORECAST_CSV = ROOT / "data" / "processed" / f"phase4_{WINNER_FAMILY}_forecasts.csv"
 RESID_SUMMARY_CSV = ROOT / "data" / "processed" / "phase5_residual_distribution_summary.csv"
 INTEGRITY_CSV = ROOT / "data" / "processed" / "phase5_bootstrap_mode_integrity.csv"
 

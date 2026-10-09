@@ -25,7 +25,9 @@ from src.monte_carlo import (
 REBAL_FREQ_WINNER_FROZEN: str = "quarterly"
 
 RIDGE_RESID_CSV = ROOT / "data" / "processed" / "phase5_ridge_oos_residuals_empirical.csv"
-FORECAST_CSV = ROOT / "data" / "processed" / "phase4_ridge_linreg_forecasts.csv"
+DEC_PATH = ROOT / "data" / "processed" / "phase4_model_selection_decision.csv"
+WINNER_FAMILY = str(pd.read_csv(DEC_PATH)["selected_model"].iloc[0]) if DEC_PATH.exists() else "rf"
+FORECAST_CSV = ROOT / "data" / "processed" / f"phase4_{WINNER_FAMILY}_forecasts.csv"
 NIFTY_MAP_CSV = ROOT / "docs" / "nifty50_sector_map.csv"
 
 CENTROID_CSV = ROOT / "data" / "processed" / "phase5_centroid_median_weights.csv"

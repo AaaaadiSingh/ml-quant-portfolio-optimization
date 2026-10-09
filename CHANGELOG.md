@@ -478,6 +478,36 @@ All gates from Source spec §27 (Phase 3 Exit Gates G1–G7) must be YES before 
 
 ---
 
+## Week 12–13 — Walk-Forward Backtesting, Statistical Inference & Robustness (2026-10-07 — COMPLETE ✅)
+
+### ✅ Completed
+
+- **Core Engine Architecture (`src/backtest_engine.py` & `src/metrics.py`)**
+  - `src/backtest_engine.py`: Implemented `WalkForwardBacktestEngine` and `simulate_walk_forward()` with holding-period return accrual, daily price drift tracking, one-sided turnover accounting, and proportional transaction cost drag.
+  - `src/metrics.py`: Implemented consolidated NB2-consistent metrics: `cagr`, `annualized_volatility`, `sharpe_ratio`, `sortino_ratio`, `max_drawdown`, `calmar_ratio`, `empirical_var`, `empirical_cvar`, and `compute_all_metrics`.
+  - Smoke tests in `tests/test_backtest_smoke.py` → pytest suite **40/40 PASS**.
+
+- **Step 6.1: Full Walk-Forward Performance Engine (`scripts/phase6_run_backtest.py`)**
+  - Aligned all 8 walk-forward strategies on 2,222 trading days (2015-01-01 -> 2023-12-29, holdout safe): Centroid, Ridge LinReg, RF, XGBoost, Equal Weight (1/N), Min Variance (LW), Risk Parity (LW), Classic Max Sharpe (LW, ±3pp CMS).
+  - Reconstructed Centroid daily equity curve under 10 bps turnover friction. Max weight drift error $= 5.55 \times 10^{-16} < 10^{-5}$ across 2,222 days.
+  - Exported `phase6_all_equities_txadj.csv` (2,222 × 8) and `phase6_performance_summary.csv` (8 rows × 11 metrics).
+
+- **Step 6.2: Statistical Significance & Multiple Testing (`scripts/phase6_statistical_tests.py`)**
+  - **Jobson-Korkie (Memmel 2003 Asymptotic Variance Correction):** Evaluated all 28 pairwise differences ($8C2 = 28$). Centroid vs 1/N $\Delta S = +0.0142, z = 0.275, p = 0.7835$; Centroid vs Ridge $\Delta S = -0.0273, z = -0.353, p = 0.7240$. Confirmed DeMiguel et al. (2009) theorem.
+  - **Deflated Sharpe Ratio (Bailey & López de Prado 2014):** Corrected for $N = 24$ sequential testing configurations and non-normal tails. Centroid DSR probability $= \mathbf{0.4490 > 0.0}$ (Hard Assert 1 PASS).
+  - **Probability of Backtest Overfitting (PBO / CSCV):** Combinatorially Symmetric Cross-Validation with $S=6$ slices, $\binom{6}{3}=20$ splits. $\mathbf{\text{PBO} = 0.400 < 0.500}$ (Hard Assert 2 PASS), median OOS relative rank $= 0.64$.
+
+- **Step 6.3: Factor Attribution & Robustness Checks (`scripts/phase6_robustness.py`)**
+  - **4-Factor Decomposition:** Regressed daily excess returns on Indian Market, SMB, HML, and MOM factor proxies. Centroid $\beta_{\text{MKT}} = 1.040, \beta_{\text{SMB}} = 0.029, \beta_{\text{MOM}} = 0.108, R^2 = 0.470$.
+  - **Pre-Defined 6 Macro Regimes:** 48 observations across 6 non-overlapping epochs (2015–2023). Centroid outperforms in COVID crash & rebound (+0.3204) and rate hikes (+0.2415).
+  - **Transaction Cost Sensitivity Sweep:** Tested 0, 5, 10, 20, 30, 50 bps per turn. Centroid remains positive across all costs ($0.0364 \to 0.0239$), while Classic Max Sharpe goes negative ($-0.0052$) at 50 bps.
+
+- **Notebook 04 & Exit Gate Verification**
+  - `notebooks/04_backtesting_results.py` + `notebooks/04_backtesting_results.ipynb` (19 cells) + `notebooks/_run_nb4_validation.py` (8 panels PASS, 3/3 hard asserts GREEN).
+  - `scripts/_p6_exit_gates.py` → **8/8 Exit Gates PASS**.
+
+---
+
 ## Phase-Signing Checklists
 
 ### Phase 1 — Foundations exit (from `CONTEXT.md §6` / README)
@@ -539,3 +569,16 @@ All gates from Source spec §27 (Phase 3 Exit Gates G1–G7) must be YES before 
 - [x] Selected `mean` centroid portfolio verified (turnover reduced ~63% to $6,148.9\,\text{bps/yr}$, max concentration $9.34\% \le 10\%$)
 - [x] Notebook 03 8 panels and 2/2 hard asserts PASS
 - [x] 7/7 Phase 5 Exit Gates PASS
+
+### Phase 6 — Walk-Forward Backtesting & Evaluation exit
+
+- [x] `src/backtest_engine.py` and `src/metrics.py` implemented and verified
+- [x] Unit test `test_backtest_smoke.py` passing (pytest 40/40 PASS)
+- [x] 8-strategy walk-forward performance engine executed on 2,222 trading days (2015-01-01 -> 2023-12-29, 0 holdout contamination)
+- [x] Centroid daily drifted weights tracked with zero drift constraint violations ($5.55 \times 10^{-16} < 10^{-5}$)
+- [x] Jobson-Korkie (Memmel 2003 asymptotic correction) computed for all 28 pairwise strategy differences
+- [x] Deflated Sharpe Ratio ($N=24$) verified with non-normal tails (Centroid DSR prob $= 0.4490 > 0.0$, Hard Assert 1 GREEN)
+- [x] Combinatorially Symmetric Cross-Validation PBO verified ($S=6$ slices, 20 combinations, $\text{PBO} = 0.400 < 0.500$, Hard Assert 2 GREEN)
+- [x] Factor attribution (4-factor model), 6 macro regime evaluations (48 observations), and transaction cost sensitivity sweep (0–50 bps, 48 rows) completed
+- [x] Notebook 04 rendered (`.py` + `.ipynb`) and headless validation 8/8 panels PASS, 3/3 hard asserts GREEN
+- [x] 8/8 Phase 6 Exit Gates PASS (`scripts/_p6_exit_gates.py`)

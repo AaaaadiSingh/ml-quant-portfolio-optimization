@@ -17,6 +17,7 @@ from build_stage1a_baselines import (
     _raw_sharpe,
     _rebalance_dates,
 )
+from src.backtest_engine import WalkForwardBacktestEngine
 from src.covariance import ledoit_wolf_cov, pca_factor_cov
 from src.data_loader import FinalHoldoutDate, load_prices
 from src.optimizer import min_variance_weights, risk_parity_weights
@@ -155,25 +156,9 @@ def _wf_one_estimator_one_strategy(
     rebal_keys_sorted = sorted(weights_by_rebal.keys(), key=lambda d: daily_idx.get_loc(d) if d in daily_idx else -1)
     if not rebal_keys_sorted:
         return pd.Series(np.ones(len(daily_idx)), index=daily_idx, name=f"{estimator_name}_{strategy}"), weights_by_rebal, meta_records
-    equity_arr = np.ones(len(daily_idx), dtype=float)
-    for k, rd in enumerate(rebal_keys_sorted):
-        w = weights_by_rebal[rd]
-        pos0 = daily_idx.get_loc(rd)
-        if k + 1 < len(rebal_keys_sorted):
-            next_rd = rebal_keys_sorted[k + 1]
-            pos1 = daily_idx.get_loc(next_rd)
-        else:
-            pos1 = len(daily_idx)
-        sub = close.iloc[pos0:pos1]
-        if len(sub) < 1:
-            continue
-        sub_close = sub.values.astype(float)
-        init_row = sub_close[0, :]
-        safe = np.where(np.isfinite(init_row) & (init_row > 0), init_row, 1.0)
-        sub_ret = sub_close / safe
-        port_curve = sub_ret @ w
-        equity_arr[pos0:pos1] = equity_arr[pos0] * port_curve
-    equity_s = pd.Series(equity_arr, index=daily_idx, name=f"{estimator_name}_{strategy}")
+    engine = WalkForwardBacktestEngine(close, bps_per_turnover=TURNOVER_ONE_SIDED_BPS)
+    equity_s, _, _, _ = engine.simulate(weights_by_rebal)
+    equity_s.name = f"{estimator_name}_{strategy}"
     return equity_s.sort_index(), weights_by_rebal, meta_records
 
 

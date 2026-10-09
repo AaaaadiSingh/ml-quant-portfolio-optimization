@@ -18,6 +18,7 @@ RAW_WEIGHTS_CSV = ROOT / "data" / "processed" / "phase5_raw_weight_draws_long.cs
 NIFTY_MAP_CSV = ROOT / "docs" / "nifty50_sector_map.csv"
 
 DECISION_CSV = ROOT / "data" / "processed" / "phase5_centroid_selection_decision.csv"
+VERDICT_CSV = ROOT / "data" / "processed" / "phase5_mc_centroid_verdict.csv"
 SELECTED_WEIGHTS_CSV = ROOT / "data" / "processed" / "phase5_selected_centroid_weights.csv"
 COMPARE_PANEL_CSV = ROOT / "data" / "processed" / "phase5_centroid_comparison_panel.csv"
 
@@ -219,6 +220,32 @@ def main() -> None:
     }
     pd.DataFrame([decision_row]).to_csv(DECISION_CSV, index=False)
     print(f"[step5] wrote selection decision -> {DECISION_CSV}")
+
+    verdict_rows = []
+    for rank_i, ag in enumerate(ags_sort2, start=1):
+        sc = scores[ag]
+        verdict_rows.append({
+            "candidate_id": f"C{rank_i}_{ag}",
+            "agg_method": ag,
+            "max_single_name_concentration_pp": float(sc["cap_max_pp"]),
+            "max_sector_drift_pp": float(sc["drift_max_pp"]),
+            "composite_score": float(sc["composite_score_lower_better_diversified"]),
+            "feasibility_pass": bool(sc["cap_violation"] == 0 and sc["drift_violation"] == 0),
+            "rank": rank_i,
+            "justification": f"Rank {rank_i} under FR-5 tiebreaker",
+        })
+    verdict_rows.append({
+        "candidate_id": "DECISION",
+        "agg_method": selected,
+        "max_single_name_concentration_pp": float(scores[selected]["cap_max_pp"]),
+        "max_sector_drift_pp": float(scores[selected]["drift_max_pp"]),
+        "composite_score": float(scores[selected]["composite_score_lower_better_diversified"]),
+        "feasibility_pass": True,
+        "rank": 1,
+        "justification": justification,
+    })
+    pd.DataFrame(verdict_rows).to_csv(VERDICT_CSV, index=False)
+    print(f"[step5] wrote candidate verdict -> {VERDICT_CSV}")
     print(f"[step5] DONE  SELECTED: {selected!r}")
 
 

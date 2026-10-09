@@ -29,6 +29,7 @@ from phase3_run_5baselines import (
     _rolling_max_drawdown,
     _sector_targets_full_nifty50_count,
 )
+from src.backtest_engine import WalkForwardBacktestEngine
 from src.covariance import ledoit_wolf_cov, log_returns
 from src.data_loader import FinalHoldoutDate, load_prices
 from src.optimizer import (
@@ -157,26 +158,9 @@ def _wf_one_ml_family(
             tickers_order=tickers_order,
         )
         weights_by_rebal[rd] = np.asarray(w, dtype=float)
-    rebal_keys_sorted = sorted(weights_by_rebal.keys(), key=lambda d: daily_idx.get_loc(d))
-    equity_arr = np.ones(len(daily_idx), dtype=float)
-    for k, rd in enumerate(rebal_keys_sorted):
-        w = weights_by_rebal[rd]
-        pos0 = daily_idx.get_loc(rd)
-        if k + 1 < len(rebal_keys_sorted):
-            pos1 = daily_idx.get_loc(rebal_keys_sorted[k + 1])
-        else:
-            pos1 = len(daily_idx)
-        sub = close.iloc[pos0:pos1]
-        if len(sub) < 1:
-            continue
-        sub_close = sub.values.astype(float)
-        init_row = sub_close[0, :]
-        safe = np.where(np.isfinite(init_row) & (init_row > 0), init_row, 1.0)
-        sub_ret = sub_close / safe
-        port_curve = sub_ret @ w
-        equity_arr[pos0:pos1] = equity_arr[pos0] * port_curve
-    equity_s = pd.Series(equity_arr, index=daily_idx).sort_index()
-    return equity_s, weights_by_rebal
+    engine = WalkForwardBacktestEngine(close, bps_per_turnover=TURNOVER_ONE_SIDED_BPS)
+    equity_s, _, _, _ = engine.simulate(weights_by_rebal)
+    return equity_s.sort_index(), weights_by_rebal
 
 
 def _cms_panel5_check(
@@ -323,7 +307,8 @@ def main() -> int:
                 beat_1n = (nb2_tx["sharpe_txadj"] - ew_nb2["sharpe_txadj"]) * 10000.0
         ann_turnover_bps = float("nan")
         if len(t.dropna()) >= 2:
-            ann_turnover_bps = float(t.mean() * 252.0 * 10000.0)
+            n_yrs = len(equ_raw) / float(TRADING_DAYS_PER_YEAR)
+            ann_turnover_bps = float(t.sum() / n_yrs * 10000.0)
         summary_rows.append({
             "strategy": ML_FAMILY_PRETTY.get(family, family),
             "strategy_key": family,
@@ -418,6 +403,57 @@ def main() -> int:
             print("[FLAT → Phase 5 MC still mandatory, per CONTEXT 3-layer defense]")
         print("[DSR/PBO deferred to Phase 6: point-estimate deltas ARE NOT the final claim.]")
 
+
+    # Step 4.7 Authoritative Model Selection Decision
+    ml_candidates = summary_df[summary_df["strategy_key"].isin(ML_FAMILIES)].copy()
+    ml_candidates = ml_candidates.sort_values("sharpe_txadj", ascending=False).reset_index(drop=True)
+    top1 = ml_candidates.iloc[0]
+    top2 = ml_candidates.iloc[1]
+    delta_s = float(top1["sharpe_txadj"] - top2["sharpe_txadj"])
+
+    selected_key = str(top1["strategy_key"])
+    selected_sharpe = float(top1["sharpe_txadj"])
+    selected_turnover = float(top1["total_turnover_ann_bps"])
+    selected_calmar = float(top1["calmar"])
+
+    if delta_s > 0.02:
+        rule_text = f"sharpe_txadj DESC primary ({selected_sharpe:.4f} highest among ML models; delta_S={delta_s:.4f} > 0.02 over {top2['strategy_key']}). Direct win without tiebreaker."
+    else:
+        calmar_diff = float(top1["calmar"] - top2["calmar"])
+        if abs(calmar_diff) >= 0.02:
+            if calmar_diff > 0:
+                selected_key = str(top1["strategy_key"])
+                win_m = top1
+            else:
+                selected_key = str(top2["strategy_key"])
+                win_m = top2
+            selected_sharpe = float(win_m["sharpe_txadj"])
+            selected_turnover = float(win_m["total_turnover_ann_bps"])
+            selected_calmar = float(win_m["calmar"])
+            rule_text = f"delta_S={delta_s:.4f} <= 0.02 -> tie-breaker 1 (higher Calmar) fires: {selected_key} Calmar={selected_calmar:.4f} vs competitor."
+        else:
+            if top1["total_turnover_ann_bps"] <= top2["total_turnover_ann_bps"]:
+                selected_key = str(top1["strategy_key"])
+                win_m = top1
+            else:
+                selected_key = str(top2["strategy_key"])
+                win_m = top2
+            selected_sharpe = float(win_m["sharpe_txadj"])
+            selected_turnover = float(win_m["total_turnover_ann_bps"])
+            selected_calmar = float(win_m["calmar"])
+            rule_text = f"delta_S={delta_s:.4f} <= 0.02 and Calmar tied -> tie-breaker 2 (lower turnover) fires: {selected_key} turnover={selected_turnover:.1f} bps/yr."
+
+    dec_row = {
+        "selected_model": selected_key,
+        "sharpe_txadj": selected_sharpe,
+        "turnover_ann_bps": selected_turnover,
+        "calmar": selected_calmar,
+        "justification_rule_applied": rule_text,
+    }
+    dec_df = pd.DataFrame([dec_row])
+    dec_df.to_csv(out_dir / "phase4_model_selection_decision.csv", index=False)
+    print(f"\n[ok  ] Authoritative model selection decision written to {out_dir / 'phase4_model_selection_decision.csv'}")
+    print(f"       WINNER: {selected_key} | Rule: {rule_text}")
     return 0
 
 

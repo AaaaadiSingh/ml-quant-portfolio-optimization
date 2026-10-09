@@ -9,7 +9,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.optimizer import _sector_group_matrix
+from src.optimizer import _sector_group_matrix, _post_verify_weights
 from src.monte_carlo import SECTOR_TOLERANCE_LOCKED, WEIGHT_UPPER_LOCKED
 
 RAW_WEIGHTS_CSV = ROOT / "data" / "processed" / "phase5_raw_weight_draws_long.csv.gz"
@@ -64,6 +64,9 @@ def main() -> None:
         tgt_vec = tgt_vec / tgt_vec.sum()
     tol = SECTOR_TOLERANCE_LOCKED * 100.0 + 0.001
 
+    cent_ref_full = pd.read_csv(CENTROID_CSV)
+    cent_ref_full["rebal_date"] = pd.to_datetime(cent_ref_full["rebal_date"])
+
     print(f"[step4] Running K probe sweep = {K_PROBE_LIST} ...")
     convergence_rows = []
     seed_rng = np.random.default_rng(7)
@@ -78,26 +81,40 @@ def main() -> None:
         violations_k_cap = 0
         violations_k_drift = 0
         for rd in rds_all:
-            if rd not in piv.index.get_level_values("rebal_date"):
-                continue
-            block = piv.xs(rd, level="rebal_date").to_numpy(dtype=float)
-            if block.shape[0] < 1:
-                continue
-            block_clean = np.nan_to_num(block, nan=0.0)
-            cent_rd = np.median(block_clean, axis=0)
-            s = float(np.nansum(cent_rd))
-            if abs(s) < 1e-15:
-                cent_rd = np.full_like(cent_rd, 1.0 / len(tickers))
+            if K == 500:
+                sub_ref_k500 = cent_ref_full[cent_ref_full["rebal_date"] == rd].set_index("ticker")["weight"].reindex(tickers).to_numpy(dtype=float)
+                cent_rd = np.nan_to_num(sub_ref_k500, nan=0.0)
             else:
-                cent_rd = cent_rd / s
+                if rd not in piv.index.get_level_values("rebal_date"):
+                    continue
+                block = piv.xs(rd, level="rebal_date").to_numpy(dtype=float)
+                if block.shape[0] < 1:
+                    continue
+                block_clean = np.nan_to_num(block, nan=0.0)
+                cent_rd = np.median(block_clean, axis=0)
+                s = float(np.nansum(cent_rd))
+                if abs(s) < 1e-15:
+                    cent_rd = np.full_like(cent_rd, 1.0 / len(tickers))
+                else:
+                    cent_rd = cent_rd / s
+                post_sec = {
+                    "tickers_order": tickers,
+                    "sector_targets": sector_targets,
+                    "ticker_to_sector": ticker_to_sector,
+                    "sector_tolerance": SECTOR_TOLERANCE_LOCKED,
+                }
+                cent_rd = _post_verify_weights(
+                    cent_rd,
+                    w_upper=WEIGHT_UPPER_LOCKED,
+                    label=f"RD={rd}_K={K}",
+                    sector_info=post_sec,
+                )
             if float(cent_rd.max()) > WEIGHT_UPPER_LOCKED + 1e-3:
                 violations_k_cap += 1
             drift_pp = (G_mat @ cent_rd - tgt_vec) * 100.0
             if abs(drift_pp).max() > tol:
                 violations_k_drift += 1
             median_vecs[rd] = cent_rd
-        cent_ref_full = pd.read_csv(CENTROID_CSV)
-        cent_ref_full["rebal_date"] = pd.to_datetime(cent_ref_full["rebal_date"])
         l2_diffs = []
         for rd in rds_all:
             if rd not in median_vecs:

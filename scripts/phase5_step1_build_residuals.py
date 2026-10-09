@@ -42,8 +42,11 @@ def main() -> None:
     print(f"[step1] aligned panel rows = {len(X)} cols = {X.shape[1]}")
     assert len(X) >= EXPECTED_ROWS - 100, f"expected ~{EXPECTED_ROWS} rows, got {len(X)}"
 
+    dec_path = ROOT / "data" / "processed" / "phase4_model_selection_decision.csv"
+    winner_family = str(pd.read_csv(dec_path)["selected_model"].iloc[0]) if dec_path.exists() else "rf"
+    print(f"[step1] Extracting OOS residuals for winner family: {winner_family}")
     yhat, residuals, fold_summary_list = extract_oos_residuals(
-        family="ridge_linreg",
+        family=winner_family,
         X=X,
         y=y,
         date_index=common_dates,
